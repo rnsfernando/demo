@@ -1,8 +1,0 @@
-matplotlib==3.10.5
-numpy==2.3.2
-pandas==2.3.1
-pyqtgraph==0.13.7
-scikit_learn==1.7.1
-scipy==1.16.1
-seaborn==0.13.2
-sounddevice==0.5.1
