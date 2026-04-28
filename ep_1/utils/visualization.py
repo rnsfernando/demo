@@ -34,6 +34,35 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtWidgets, QtCore
 
 
+def _qsize_policy(policy_name):
+    """Return QSizePolicy enum value compatible with both PyQt5 and PyQt6."""
+    if hasattr(QtWidgets.QSizePolicy, policy_name):
+        return getattr(QtWidgets.QSizePolicy, policy_name)
+    return getattr(QtWidgets.QSizePolicy.Policy, policy_name)
+
+
+def _qt_enum(name, scoped_name):
+    """Return Qt enum value compatible with both PyQt5 and PyQt6."""
+    if hasattr(QtCore.Qt, name):
+        return getattr(QtCore.Qt, name)
+    scope = getattr(QtCore.Qt, scoped_name)
+    return getattr(scope, name)
+
+
+def _qfont_bold_weight():
+    """Return QFont bold weight compatible with both PyQt5 and PyQt6."""
+    if hasattr(QtGui.QFont, "Bold"):
+        return QtGui.QFont.Bold
+    return QtGui.QFont.Weight.Bold
+
+
+def _qpainter_antialiasing_hint():
+    """Return QPainter antialiasing hint compatible with both PyQt5 and PyQt6."""
+    if hasattr(QtGui.QPainter, "Antialiasing"):
+        return QtGui.QPainter.Antialiasing
+    return QtGui.QPainter.RenderHint.Antialiasing
+
+
 # ── Colour helpers ─────────────────────────────────────────────────────────────
 
 def _hsi_color(val):
@@ -83,8 +112,8 @@ class StatusPanel(QtWidgets.QWidget):
         self.setMinimumHeight(70)
         self.setMaximumHeight(90)
         self.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding,
-            QtWidgets.QSizePolicy.Fixed,
+            _qsize_policy("Expanding"),
+            _qsize_policy("Fixed"),
         )
 
     def set_hsi(self, values):
@@ -100,97 +129,98 @@ class StatusPanel(QtWidgets.QWidget):
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setRenderHint(_qpainter_antialiasing_hint())
 
-        w = self.width()
-        h = self.height()
+        try:
+            w = self.width()
+            h = self.height()
 
-        # Dark background
-        painter.fillRect(0, 0, w, h, QtGui.QColor(30, 30, 40))
+            # Dark background
+            painter.fillRect(0, 0, w, h, QtGui.QColor(30, 30, 40))
 
-        # ── HSI circles ───────────────────────────────────────────────────────
-        circle_r  = 16
-        spacing   = 90
-        hsi_x0    = 20
-        label_y   = h // 2 - circle_r - 4
-        circle_y  = h // 2 - circle_r + 10
+            # ── HSI circles ───────────────────────────────────────────────────────
+            circle_r  = 16
+            spacing   = 90
+            hsi_x0    = 20
+            label_y   = h // 2 - circle_r - 4
+            circle_y  = h // 2 - circle_r + 10
 
-        font = QtGui.QFont("Segoe UI", 8, QtGui.QFont.Bold)
-        painter.setFont(font)
+            font = QtGui.QFont("Segoe UI", 8, _qfont_bold_weight())
+            painter.setFont(font)
 
-        for i, (name, val) in enumerate(zip(self.CHANNEL_NAMES, self._hsi)):
-            cx = hsi_x0 + i * spacing + circle_r
-            r, g, b = _hsi_color(val)
+            for i, (name, val) in enumerate(zip(self.CHANNEL_NAMES, self._hsi)):
+                cx = hsi_x0 + i * spacing + circle_r
+                r, g, b = _hsi_color(val)
 
-            # Glow ring (skip for unknown state)
-            if val is not None:
-                glow_pen = QtGui.QPen(QtGui.QColor(r, g, b, 80), 4)
-                painter.setPen(glow_pen)
-                painter.setBrush(QtCore.Qt.NoBrush)
-                painter.drawEllipse(cx - circle_r - 3, circle_y - 3,
-                                    (circle_r + 3) * 2, (circle_r + 3) * 2)
+                # Glow ring (skip for unknown state)
+                if val is not None:
+                    glow_pen = QtGui.QPen(QtGui.QColor(r, g, b, 80), 4)
+                    painter.setPen(glow_pen)
+                    painter.setBrush(_qt_enum("NoBrush", "BrushStyle"))
+                    painter.drawEllipse(cx - circle_r - 3, circle_y - 3,
+                                        (circle_r + 3) * 2, (circle_r + 3) * 2)
 
-            # Filled circle
-            painter.setPen(QtCore.Qt.NoPen)
-            painter.setBrush(QtGui.QColor(r, g, b))
-            painter.drawEllipse(cx - circle_r, circle_y,
-                                circle_r * 2, circle_r * 2)
+                # Filled circle
+                painter.setPen(_qt_enum("NoPen", "PenStyle"))
+                painter.setBrush(QtGui.QColor(r, g, b))
+                painter.drawEllipse(cx - circle_r, circle_y,
+                                    circle_r * 2, circle_r * 2)
 
-            # Channel label
-            painter.setPen(QtGui.QColor(200, 200, 210))
-            painter.drawText(
-                QtCore.QRect(cx - spacing // 2, label_y, spacing, 18),
-                QtCore.Qt.AlignCenter,
-                name,
-            )
+                # Channel label
+                painter.setPen(QtGui.QColor(200, 200, 210))
+                painter.drawText(
+                    QtCore.QRect(cx - spacing // 2, label_y, spacing, 18),
+                    _qt_enum("AlignCenter", "AlignmentFlag"),
+                    name,
+                )
 
-        # ── Battery bar ───────────────────────────────────────────────────────
-        bar_x     = hsi_x0 + 4 * spacing + 10
-        bar_w_max = w - bar_x - 20
-        bar_h     = 22
-        bar_y     = (h - bar_h) // 2
+            # ── Battery bar ───────────────────────────────────────────────────────
+            bar_x     = hsi_x0 + 4 * spacing + 10
+            bar_w_max = w - bar_x - 20
+            bar_h     = 22
+            bar_y     = (h - bar_h) // 2
 
-        # Border
-        painter.setPen(QtGui.QPen(QtGui.QColor(120, 120, 140), 1))
-        painter.setBrush(QtGui.QColor(50, 50, 65))
-        painter.drawRoundedRect(bar_x, bar_y, bar_w_max, bar_h, 4, 4)
+            # Border
+            painter.setPen(QtGui.QPen(QtGui.QColor(120, 120, 140), 1))
+            painter.setBrush(QtGui.QColor(50, 50, 65))
+            painter.drawRoundedRect(bar_x, bar_y, bar_w_max, bar_h, 4, 4)
 
-        if self._batt is not None:
-            fill_w = int(bar_w_max * self._batt / 100.0)
-            r, g, b = _battery_color(self._batt)
-            painter.setPen(QtCore.Qt.NoPen)
-            painter.setBrush(QtGui.QColor(r, g, b))
-            painter.drawRoundedRect(bar_x + 1, bar_y + 1,
-                                    max(0, fill_w - 2), bar_h - 2, 3, 3)
+            if self._batt is not None:
+                fill_w = int(bar_w_max * self._batt / 100.0)
+                r, g, b = _battery_color(self._batt)
+                painter.setPen(_qt_enum("NoPen", "PenStyle"))
+                painter.setBrush(QtGui.QColor(r, g, b))
+                painter.drawRoundedRect(bar_x + 1, bar_y + 1,
+                                        max(0, fill_w - 2), bar_h - 2, 3, 3)
 
-            # Battery % text
-            painter.setPen(QtGui.QColor(230, 230, 240))
-            font2 = QtGui.QFont("Segoe UI", 9, QtGui.QFont.Bold)
-            painter.setFont(font2)
-            painter.drawText(
-                QtCore.QRect(bar_x, bar_y, bar_w_max, bar_h),
-                QtCore.Qt.AlignCenter,
-                f"{self._batt:.0f} %",
-            )
+                # Battery % text
+                painter.setPen(QtGui.QColor(230, 230, 240))
+                font2 = QtGui.QFont("Segoe UI", 9, _qfont_bold_weight())
+                painter.setFont(font2)
+                painter.drawText(
+                    QtCore.QRect(bar_x, bar_y, bar_w_max, bar_h),
+                    _qt_enum("AlignCenter", "AlignmentFlag"),
+                    f"{self._batt:.0f} %",
+                )
 
-            # Small battery icon to the left of bar
-            painter.setPen(QtGui.QPen(QtGui.QColor(180, 180, 200), 1))
-            painter.setBrush(QtCore.Qt.NoBrush)
-            icon_x = bar_x - 26
-            icon_y = bar_y + 3
-            painter.drawRect(icon_x, icon_y, 18, 16)
-            painter.drawRect(icon_x + 18, icon_y + 4, 4, 8)   # nub
-        else:
-            # No data yet
-            painter.setPen(QtGui.QColor(120, 120, 140))
-            painter.setFont(QtGui.QFont("Segoe UI", 8))
-            painter.drawText(
-                QtCore.QRect(bar_x, bar_y, bar_w_max, bar_h),
-                QtCore.Qt.AlignCenter,
-                "Battery: --",
-            )
-
-        painter.end()
+                # Small battery icon to the left of bar
+                painter.setPen(QtGui.QPen(QtGui.QColor(180, 180, 200), 1))
+                painter.setBrush(_qt_enum("NoBrush", "BrushStyle"))
+                icon_x = bar_x - 26
+                icon_y = bar_y + 3
+                painter.drawRect(icon_x, icon_y, 18, 16)
+                painter.drawRect(icon_x + 18, icon_y + 4, 4, 8)   # nub
+            else:
+                # No data yet
+                painter.setPen(QtGui.QColor(120, 120, 140))
+                painter.setFont(QtGui.QFont("Segoe UI", 8))
+                painter.drawText(
+                    QtCore.QRect(bar_x, bar_y, bar_w_max, bar_h),
+                    _qt_enum("AlignCenter", "AlignmentFlag"),
+                    "Battery: --",
+                )
+        finally:
+            painter.end()
 
 
 # ── Main visualizer ────────────────────────────────────────────────────────────
@@ -261,7 +291,7 @@ def visualizer(queue: Queue, shutdown_event: Event,
 
     def _make_header(text, color):
         lbl = QtWidgets.QLabel(text)
-        lbl.setAlignment(QtCore.Qt.AlignCenter)
+        lbl.setAlignment(_qt_enum("AlignCenter", "AlignmentFlag"))
         lbl.setStyleSheet(
             f"color: {color}; font-size: 15px; font-weight: bold;"
             "background: transparent; padding: 2px;"
@@ -373,4 +403,7 @@ def visualizer(queue: Queue, shutdown_event: Event,
     timer.timeout.connect(update)
     timer.start(30)
 
-    app.exec_()
+    if hasattr(app, "exec_"):
+        app.exec_()
+    else:
+        app.exec()

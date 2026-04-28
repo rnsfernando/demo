@@ -53,7 +53,7 @@ Make sure you have the following installed:
 - edit `experimentManager.py` to set your Muse Mac address
 
 ```bash
-pip install requirements.txt
+pip install -r ep_1/requirements.txt
 ```
 
 ## 🔍 Find Your Muse MAC Address
